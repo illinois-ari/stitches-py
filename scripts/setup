@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -ex
+HOSTNAME=`hostname`
+IMAGE_REGISTRY=${IMAGE_REGISTRY:-"${HOSTNAME}:5000"}
+IMAGE_TAG=${IMAGE_TAG:-"latest"}
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+# Start Docker registry to store buildx output
+docker-compose up -d registry
+
+# Build dev image and pull from local registry
+$SCRIPT_DIR/build
+docker pull ${IMAGE_REGISTRY}/stitches-py-dev:${IMAGE_TAG}
+
+mkdir -p build
+mkdir -p inputs
+
+# Start the rest of the compose services
+docker-compose up -d
+
+# Install stitches py in dev container (editable)
+DEV_WD=/opt/stitches-py/src/stitches-py $SCRIPT_DIR/dev sudo python3 setup.py develop
+#$SCRIPT_DIR/dev sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+#$SCRIPT_DIR/dev sudo docker buildx create --driver docker-container --driver-opt network=host --use

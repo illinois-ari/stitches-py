@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -ex
+PROJECT_DIR="$( dirname $( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd ))"
+
+IMAGE_REGISTRY=${IMAGE_REGISTRY:-"$HOSTNAME:5000"}
+IMAGE_TAG=${IMAGE_TAG:-'latest'}
+IMAGE_PLATFORMS=${IMAGE_PLATFORMS:-'linux/amd64'}
+STITCHES_TAR_URL="https://aripublic.blob.core.windows.net/files/STITCHES_6R7.2_DISTRO-A.tar"
+
+STITCHES_TAR=${PROJECT_DIR}/docker/stitches-dev/STITCHES_6R7.2_DISTRO-A.tar
+if [ ! -f "$STITCHES_TAR" ]; then
+    wget ${STITCHES_TAR_URL} -O ${STITCHES_TAR}
+fi
+
+TARGETARCH=`dpkg --print-architecture`
+
+docker build --build-arg TARGETARCH=$TARGETARCH -t ${IMAGE_PLATFORMS} -t stitches-base docker/stitches-base
+docker tag stitches-base ${IMAGE_REGISTRY}/stitches-base:${IMAGE_TAG}
+docker push ${IMAGE_REGISTRY}/stitches-base:${IMAGE_TAG}
+
+docker build --build-arg TARGETARCH=$TARGETARCH -t ${IMAGE_PLATFORMS} --build-arg IMAGE_REGISTRY=${IMAGE_REGISTRY} -t stitches-capabilities docker/stitches-capabilities
+docker tag stitches-capabilities ${IMAGE_REGISTRY}/stitches-capabilities:${IMAGE_TAG}
+docker push ${IMAGE_REGISTRY}/stitches-capabilities:${IMAGE_TAG}
+
+docker build --build-arg TARGETARCH=$TARGETARCH -t ${IMAGE_PLATFORMS} --build-arg IMAGE_REGISTRY=${IMAGE_REGISTRY} -t stitches-py-dev docker/stitches-py-dev
+docker tag stitches-py-dev ${IMAGE_REGISTRY}/stitches-py-dev:${IMAGE_TAG}
+docker push ${IMAGE_REGISTRY}/stitches-py-dev:${IMAGE_TAG}
+
+
+docker build --no-cache --build-arg TARGETARCH=$TARGETARCH -t ${IMAGE_PLATFORMS} --build-arg IMAGE_REGISTRY=${IMAGE_REGISTRY}  -t stitches-wrapper -f docker/stitches-wrapper/Dockerfile .
+docker tag stitches-wrapper ${IMAGE_REGISTRY}/stitches-wrapper:${IMAGE_TAG}
+docker push ${IMAGE_REGISTRY}/stitches-wrapper:${IMAGE_TAG}

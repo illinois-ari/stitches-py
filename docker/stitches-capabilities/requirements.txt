@@ -1,0 +1,8 @@
+pydantic
+lxml
+pytest
+typing_inspect
+jinja2
+asyncclick
+asyncio
+tabulate

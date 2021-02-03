@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -ex
+PROJECT_DIR="$( dirname $( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd ))"
+
+HOSTNAME=`hostname`
+IMAGE_REGISTRY=${IMAGE_REGISTRY:-"${HOSTNAME}:5000"}
+IMAGE_TAG=${IMAGE_TAG:-'latest'}
+IMAGE_PLATFORMS=${IMAGE_PLATFORMS:-'linux/amd64,linux/arm64'}
+STITCHES_TAR_URL="https://aripublic.blob.core.windows.net/files/STITCHES_6R7.2_DISTRO-A.tar"
+
+STITCHES_TAR=${PROJECT_DIR}/docker/stitches-capabilities/STITCHES_6R7.2_DISTRO-A.tar
+if [ ! -f "$STITCHES_TAR" ]; then
+    wget ${STITCHES_TAR_URL} -O ${STITCHES_TAR}
+fi
+
+docker buildx build --push --platform ${IMAGE_PLATFORMS} -t ${IMAGE_REGISTRY}/stitches-base:${IMAGE_TAG} docker/stitches-base
+docker buildx build --push --platform ${IMAGE_PLATFORMS} --build-arg BASE_REPO=${IMAGE_REGISTRY} -t ${IMAGE_REGISTRY}/stitches-capabilities:${IMAGE_TAG} docker/stitches-capabilities
+docker buildx build --push --platform ${IMAGE_PLATFORMS} --build-arg BASE_REPO=${IMAGE_REGISTRY} -t ${IMAGE_REGISTRY}/stitches-py-dev:${IMAGE_TAG} docker/stitches-py-dev
+
+docker buildx build --push --platform ${IMAGE_PLATFORMS} --build-arg BASE_REPO=${IMAGE_REGISTRY}  -t ${IMAGE_REGISTRY}/stitches-wrapper:${IMAGE_TAG} -f docker/stitches-wrapper/Dockerfile .

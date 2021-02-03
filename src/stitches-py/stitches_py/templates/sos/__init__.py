@@ -1,0 +1,5 @@
+from .hcal_cmake import HCAL_CMAKE_TEMPLATE
+from .hcal_dockerfile import HCAL_DOCKERFILE_TEMPLATE
+from .hcal_entrypoint import HCAL_ENTRYPOINT_TEMPLATE
+from .sos_ssi_cmake import SOS_SSI_CMAKE_TEMPLATE
+from .sos_compose import SOS_COMPOSE_TEMPLATE

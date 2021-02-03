@@ -1,0 +1,37 @@
+---
+version: "3.3"
+services:
+  builder:
+    image: docker:dind
+    command: ["--experimental"]
+    network_mode: host
+    privileged: true
+    volumes:
+      - dockersock:/var/run
+  dev:
+    image: stitches-py-dev
+    command: ["sleep", "900000"]
+    network_mode: host
+    volumes:
+      - $PWD/src:/opt/stitches-py/src
+      - $PWD/build:/opt/stitches-py/build
+      - $PWD/inputs:/opt/stitches-py/inputs
+      - $PWD/examples:/opt/stitches-py/examples
+      - $PWD/tutorials:/opt/stitches-py/tutorials
+      - /var/run/docker.sock:/var/run/docker.sock
+      - $HOME/.docker:/home/sosite/.docker
+    working_dir: /opt/stitches-py
+    ulimits:
+      core: -1
+  registry:
+    image: registry:2
+    ports:
+      - 5000:5000
+  ftgrepo:
+    image: stitches-capabilities
+    entrypoint: /opt/STITCHES_6R7.2_DISTRO-A/STITCHES_Capabilities_6R7.2_DISTRO-A/STITCHESBinaries/FTGUtils/ftgrepocommserver/bin/ftgrepocommserver
+    command:  --dir /opt/STITCHES_6R7.2_DISTRO-A/STITCHES_Inputs_6R7.2_DISTRO-A --port 4567
+    ports:
+      - 4567:4567
+volumes:
+  dockersock:

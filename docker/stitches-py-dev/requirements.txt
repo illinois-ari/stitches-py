@@ -1,0 +1,11 @@
+setuptools
+pydantic
+lxml
+pytest
+typing_inspect
+jinja2
+click
+asyncio
+requests
+tabulate
+docker

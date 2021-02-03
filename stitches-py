@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -e
+CMD_ARGS=("$@")
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+# Run stitches-py instide dev container.
+$SCRIPT_DIR/scripts/dev stitches-py ${CMD_ARGS[@]}

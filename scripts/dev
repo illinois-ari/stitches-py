@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+CMD_ARGS=("$@")
+DOCKER_SWITCHES=${DOCKER_SWITCHES:-''}
+DEV_SVC='stitches-py_dev_1'
+DEV_WD=${DEV_WD:-'/opt/stitches-py'}
+
+# Get root directory for entire project
+PROJECT_ROOT="$( dirname $( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd ))"
+
+# Run passed command inside dev docker-compose service.
+docker exec -it -w ${DEV_WD} ${DEV_SVC} ${CMD_ARGS[@]}

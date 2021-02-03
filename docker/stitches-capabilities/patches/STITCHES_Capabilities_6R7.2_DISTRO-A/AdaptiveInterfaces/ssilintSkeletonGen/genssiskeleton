@@ -1,0 +1,256 @@
+#! /bin/bash
+
+function error() {
+    echo "**********************************************************************"
+    echo "*********************  ERROR OCCURED !!!! ****************************"
+    echo "**********************************************************************"
+    echo "$1"
+    echo "**********************************************************************"
+    exit -1;
+}
+
+function dnexit() {
+    [ ! -e $1 ] && error "${1} does not exist ... exiting" && exit -1;
+}
+
+if [ -z "$STITCHES_CAPABILITIES" ]; then error "STITCHES_CAPABILITIES environment variable not set - did you run BuildCapabilities?"; fi
+if [ -z "$STITCHES_LIBRARIES" ]; then error "STITCHES_LIBRARIES environment variable not set - did you run BuildCapabilities?"; fi
+if [ -z "$STITCHES_INPUTS" ]; then error "STITCHES_INPUTS environment variable not set - did you run BuildInputs?"; fi
+
+
+USAGE="$0 [-h|--help] --render-language=<Java8|C++98|C++11|C90> --architecture=<architecture string> --heap-memory-size-kb=<memory in kb> --gen-orig-fields-and-arrays=<true|false> --delete-sample-upper-impl=<true|false> <SS Spec>"
+
+ARGS=`getopt -a -o h -l help,render-language:,architecture:,heap-memory-size-kb:,gen-orig-fields-and-arrays:,delete-sample-upper-impl: -- "$@"` 
+if [ $? -ne 0 ]; then echo "$USAGE"; exit 2; fi
+eval set -- ${ARGS}
+
+OUTPUT_DIR="./"
+RENDER_LANGUAGE=""
+ARCHITECTURE=""
+HEAP_MEMORY_SIZE_KB=""
+GEN_ORIG_FIELDS_AND_ARRAYS="false"
+DELETE_SAMPLE_UPPER_IMPL="false"
+
+while true; do
+    case "$1" in
+      "-h"|"--help")
+        echo "$USAGE";
+        shift;
+        exit 2;;
+      "--render-language" )
+        RENDER_LANGUAGE="$2";
+        shift 2;;
+      "--architecture" )
+        ARCHITECTURE="--architecture=$2";
+        shift 2;;
+      "--heap-memory-size-kb" )
+        HEAP_MEMORY_SIZE_KB="$2";
+        shift 2;;
+      "--gen-orig-fields-and-arrays" )
+        GEN_ORIG_FIELDS_AND_ARRAYS="$2";
+        shift 2;;
+      "--delete-sample-upper-impl" )
+        DELETE_SAMPLE_UPPER_IMPL="$2";
+        shift 2;;
+      "--" )
+        shift;
+        break;;
+      * ) 
+        echo "$USAGE";
+        shift;
+        exit 2;;
+    esac
+done
+
+if [ $# -lt 1 ]; then
+  echo $USAGE; exit -1;
+fi
+SS_SPEC_XML=$1
+shift
+
+if [ "$RENDER_LANGUAGE" == "" ];
+then
+  error "Must specify a rendering language!";
+fi;
+
+if [ "$RENDER_LANGUAGE" != "C90" ] && [ "$RENDER_LANGUAGE" != "C++98" ] && [ "$RENDER_LANGUAGE" != "C++11" ] && [ "$RENDER_LANGUAGE" != "Java8" ];
+then
+  error "Specified language $RENDER_LANGUAGE, please choose Java8 or C++11 or C++98 or C90";
+fi
+
+ALLOCATOR="provider=PerThreadAllocator;static-memory-kb=;dynamic-memory-kb="
+if [ "$HEAP_MEMORY_SIZE_KB" != "" ];
+then
+  if [ "$RENDER_LANGUAGE" != "C90" ];
+  then
+    error "Can not specify --heap-memory-size-kb for a language other than C90!";
+  fi;
+  ALLOCATOR="provider=PoolAllocator;pool-size=1;static-memory-kb=;dynamic-memory-kb=$HEAP_MEMORY_SIZE_KB"
+fi;
+
+if [ "$ARCHITECTURE" != "" ];
+then
+  if [ "$RENDER_LANGUAGE" != "C90" ];
+  then
+    error "Can not specify --architecture for a language other than C90!";
+  fi;
+fi;
+
+if [ "$GEN_ORIG_FIELDS_AND_ARRAYS" != "false" ];
+then
+  if [ "$RENDER_LANGUAGE" != "C++98" ] && [ "$RENDER_LANGUAGE" != "C++11" ] && [ "$RENDER_LANGUAGE" != "Java8" ];
+  then
+    error "--gen-orig-fields-and-arrays only valid for C++98 C++11 or Java8!";
+  fi;
+fi;
+
+
+
+#Make sure the server is running, otherwise exit
+#if [ -z $(pgrep -f ftgrepocommserver) ]; then
+#    echo "Community Server Repo Manager not started"
+#    exit -1
+#fi
+
+SS_SPEC_FULL=$(cd "$(dirname "$SS_SPEC_XML")"; pwd)/$(basename "$SS_SPEC_XML") && dnexit ${1}
+
+SS_SUBDIR=$PWD
+AUTOGEN_DIR=$SS_SUBDIR/Stitches/auto-gen/ssi
+
+echo "run xml2hil..."
+$STITCHES_CAPABILITIES/AdaptiveInterfaces/xml2hil --ss-spec-xml=$SS_SPEC_FULL --output-build-xml-file=$SS_SUBDIR/build.xml --target-language=$RENDER_LANGUAGE --output-hil-file=$SS_SUBDIR/ssi.hil >& $SS_SUBDIR/out_xml2hil.txt
+if [ $? -ne 0 ]; then
+  error "ERROR with xml2hil..."
+  exit -1
+fi
+
+echo "run hilc..."
+if [ "$RENDER_LANGUAGE" == "C90" ]; then
+  PREFIX=`grep -oP '(?<=<SS_TypeName>).*?(?=</SS_TypeName>)' $SS_SPEC_FULL | sed 's/\./_/g'`_
+  ${STITCHES_CAPABILITIES}/AdaptiveInterfaces/hilc $SS_SUBDIR/ssi.hil -o $AUTOGEN_DIR --render-language=$RENDER_LANGUAGE --no-lto $ARCHITECTURE --allocator=$ALLOCATOR --gen-prefix=${PREFIX} --gen-unique-filenames=true --ssilint >& out_hilcompiler.txt
+else
+  ${STITCHES_CAPABILITIES}/AdaptiveInterfaces/hilc $SS_SUBDIR/ssi.hil -o $AUTOGEN_DIR --render-language=$RENDER_LANGUAGE --gen-orig-fields-and-arrays=$GEN_ORIG_FIELDS_AND_ARRAYS --ssilint >& out_hilcompiler.txt
+fi
+if [ $? -ne 0 ]; then
+  error "ERROR with HIL compiler..."
+  exit -1
+fi
+
+if [ `grep -ic ^java.lang.*Exception out_hilcompiler.txt` -ne 0 ]; then
+  error "ERROR with HIL compiler..."
+  exit -1
+fi
+
+mkdir -p $SS_SUBDIR/Core/src
+
+# protoc
+if [ "$RENDER_LANGUAGE" == "Java8" ]
+then
+  mv $AUTOGEN_DIR/src-gen/* $AUTOGEN_DIR/
+  rmdir $AUTOGEN_DIR/src-gen
+  if [ "$DELETE_SAMPLE_UPPER_IMPL" != "false" ]; then
+    find $SS_SUBDIR -name SSIUpperSampleSubClass.java -delete
+  fi;
+  if sed -n '/<SSI>/,/<\/SSI>/p' $SS_SPEC_FULL | grep -q "Serialization=\"GPB\"" ; then
+    mkdir -p $SS_SUBDIR/Stitches/auto-gen/gpb
+    echo "run protoc..."
+    #$STITCHES_LIBRARIES/libs/SoSBuildTemplate/vendor/Linux/x86_64/protobuf/2.6.0/bin/protoc --java_out=$SS_SUBDIR/Stitches/auto-gen/gpb --proto_path=$AUTOGEN_DIR/protobuf `find $AUTOGEN_DIR/protobuf -name \*.proto` >& out_protoc.txt
+    protoc --java_out=$SS_SUBDIR/Stitches/auto-gen/gpb --proto_path=$AUTOGEN_DIR/protobuf `find $AUTOGEN_DIR/protobuf -name \*.proto` >& out_protoc.txt
+    if [ $? -ne 0 ]; then
+      error "ERROR with protoc..."
+      exit -1
+    fi
+  fi
+elif [ "$RENDER_LANGUAGE" == "C++11" ] || [ "$RENDER_LANGUAGE" == "C++98" ]
+then
+  mv $AUTOGEN_DIR/src-gen/* $AUTOGEN_DIR/
+  rmdir $AUTOGEN_DIR/src-gen
+  if [ "$DELETE_SAMPLE_UPPER_IMPL" != "false" ]; then
+    find $SS_SUBDIR -name SSIUpperSampleSubClass.cpp -delete
+  fi;
+  chmod u+x $SS_SUBDIR/build.sh
+  if sed -n '/<SSI>/,/<\/SSI>/p' $SS_SPEC_FULL | grep -q "Serialization=\"GPB\"" ; then
+    mkdir -p $SS_SUBDIR/Stitches/auto-gen/gpb
+    echo "run protoc..."
+    #$STITCHES_LIBRARIES/libs/SoSBuildTemplate/vendor/Linux/x86_64/protobuf/2.6.0/bin/protoc --cpp_out=$SS_SUBDIR/Stitches/auto-gen/gpb --proto_path=$AUTOGEN_DIR/protobuf `find $AUTOGEN_DIR/protobuf -name \*.proto` >& out_protoc.txt
+    protoc --cpp_out=$SS_SUBDIR/Stitches/auto-gen/gpb --proto_path=$AUTOGEN_DIR/protobuf `find $AUTOGEN_DIR/protobuf -name \*.proto` >& out_protoc.txt
+    if [ $? -ne 0 ]; then
+      error "ERROR with protoc..."
+      exit -1
+    fi
+  fi
+elif [ "$RENDER_LANGUAGE" == "C90" ]
+then
+  # don't rely on this soft link
+  rm ipc_libs
+  SAMPLE_MAIN_DIRNAME_RELATIVE="$(dirname "$(find . -type f -name main.exe.c)")"
+  pushd $SAMPLE_MAIN_DIRNAME_RELATIVE >& /dev/null
+  mv main.exe.c $SS_SUBDIR/Core/src/SSI_example_implementation.exe.c
+  mv Makefile $SS_SUBDIR
+  popd >& /dev/null
+  sed -i 's,find \. -name,find \.\/Core\/src \.\/Stitches\/auto-gen -name,' Makefile
+  sed -i 's,STITCHES_CC_INCLUDE_PATHS:=,STITCHES_CC_INCLUDE_PATHS:=\$(CURDIR)\/'"$SAMPLE_MAIN_DIRNAME_RELATIVE"',' Makefile
+  sed -i 's,all: \$(EXECUTABLES) \$(OBJECTS),all: \$(EXECUTABLES) \$(OBJECTS)\n\ninstall:\n\t\@mv \$(EXECUTABLES) bin/,' Makefile
+  sed -i 's,clean:,clean:\n\t\@-rm -f bin/SSI_example_implementation,' Makefile
+fi
+
+
+# Build SSI Adapter skeleton
+echo "compile SSI skeleton..."
+RES=0
+if [ "$RENDER_LANGUAGE" == "C90" ]; then
+  # create run script
+  mkdir bin
+  SSI_EXE_DIR=$(dirname "$(find . -type f -name SSI_example_implementation.exe.c)")
+cat > ./bin/debug.sh <<EOF
+#!/bin/bash
+
+BASEDIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
+export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:\${BASEDIR}
+exec valgrind "\${BASEDIR}/SSI_example_implementation"
+EOF
+chmod u+x ./bin/debug.sh;
+
+  echo "\
+#!/bin/bash
+
+BASEDIR=\"\$( cd \"\$( dirname \"\${BASH_SOURCE[0]}\" )\" && pwd )\"
+export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:\${BASEDIR}
+exec \${BASEDIR}/SSI_example_implementation" >& ./bin/run.sh
+  chmod u+x ./bin/run.sh
+
+  # create build script
+  echo "\
+#!/bin/bash
+
+if [ -z "\$STITCHES_CAPABILITIES" ]; then echo "STITCHES_CAPABILITIES environment variable not set - did you run BuildCapabilities?"; exit 1; fi
+
+make clean
+BUILD_ROOT=\$STITCHES_CAPABILITIES/AdaptiveInterfaces make
+if [ \$? -ne 0 ]; then
+  echo "make failed..."
+  exit 1
+fi
+make install
+if [ \$? -ne 0 ]; then
+  echo "make install failed..."
+  exit 1
+fi
+exit 0" >& build.sh
+  chmod u+x build.sh
+  ./build.sh >& out_compile.txt
+  RES=$?
+else
+  ant >& out_compile.txt
+  RES=$?
+fi
+if [ "$RENDER_LANGUAGE" == "Java8" ]; then
+  if [ $RES -ne 0 ]; then
+    error "ERROR with compile rendered skeleton..."
+    exit -1
+  fi
+fi
+echo "TODO: user now has to fill in skeleton with details for their subsystem"
+# ignore return code, since for C++ and C90 the rendered skeleton does not compile out of the box
+#exit ${RES}
+exit 0
