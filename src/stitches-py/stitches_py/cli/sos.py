@@ -32,7 +32,7 @@ def build(ctx,  sos, build_dir):
         click.echo(f'SoS {sos} not found in input directory {ctx.obj["input_dir"]}')
         exit(1)
     
-    click.echo(f'Deploying {sos}')
+    click.echo(f'Building {sos}')
     
     sos_cls = r_dict[sos]
     sos_cls.build(build_dir)

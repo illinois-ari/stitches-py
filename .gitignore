@@ -142,4 +142,5 @@ cython_debug/
 build/
 inputs/
 
-docker/stitches-dev/STITCHES_6R7.2_DISTRO-A.tar
+docker/stitches-capabilities/STITCHES_6R7.2_DISTRO-A.tar
+

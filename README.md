@@ -9,9 +9,11 @@ Python bindings for the DARPA STITCHES middleware.
 
 Validated Platforms:
 * Ubuntu Linux
+* CentOS Linux
 * Windows 10 (requires [WSL2](https://docs.microsoft.com/en-us/windows/wsl/install-win10))
 * MacOS
 
+For directions to configure the STITCHES OVA to use `stitches-py` see [instructions](docs/ova-setup.md)
 
 To get started using `stitches-py` first set up a development environment by running:
 

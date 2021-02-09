@@ -4,7 +4,20 @@ In this tutorial we will create some simple Subsystems and System of Systems (So
 In this SoS a `PingRequester` will send a `PingRequest` to a `PongResponder` which will send a `PongResponse` back to the `PingRequester` upon receipt.
 
 
-#### Fields
+
+## TLDR
+To generate the compiled resources for this tutorial:
+
+```bash
+./stitches-py --input-dir tutorials/1_pingpong ftg register
+./stitches-py --input-dir examples/1_pingpong ss build
+./stitches-py --input-dir examples/1_pingpong sos build pingpong.sos.PingPong
+cd build/PingPong
+docker-compose up -d
+```
+
+
+## Fields
 We first need to define what a `PingRequest` and `PongResponse` look like. We can use the `stitches-py` cli to generate scaffold code files.
 
 ```bash
@@ -252,8 +265,7 @@ To run one of our new subsystems.
 
 *** Note: SSes are not yet configured to exit gracefully. User `CTL+C` to quit.
 
-### Systems of Systems
-***Warning: WIP***
+## Systems of Systems
 
 Finally we need to define our System of Systems connecting our subsystems.
 
@@ -303,16 +315,4 @@ class PingPong:
 
 ```bash
 ./stitches-py sos build
-```
-
-
-#### TLDR
-To generate the compiled resources for this tutorial:
-
-```bash
-./stitches-py --input-dir tutorials/1_pingpong ftg register
-./stitches-py --input-dir examples/1_pingpong ss build
-./stitches-py --input-dir examples/1_pingpong sos build pingpong.sos.PingPong
-cd build/PingPong
-docker-compose up -d
 ```

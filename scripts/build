@@ -11,27 +11,29 @@ if [ ! -f "$STITCHES_TAR" ]; then
     wget ${STITCHES_TAR_URL} -O ${STITCHES_TAR}
 fi
 
-TARGETARCH=`dpkg --print-architecture`
+SYS_ARCH=`uname -m`
 
-if [ "$TARGETARCH" = "amd64" ]; then
-    ARCHLIB=/usr/lib/x86_64-linux-gnu
-elif [ "$TARGETARCH" = "arm64" ]; then
-    ARCHLIB=/usr/lib/aarch64-linux-gnu
+if [ "$SYS_ARCH" = "x86_64" ]; then
+    TARGETARCH=amd64
+    ARCHLIB=/usr/lib/$SYS_ARCH-linux-gnu
+elif [ "$SYS_ARCH" = "aarch64" ]; then
+    TARGETARCH=arm64
+    ARCHLIB=/usr/lib/$SYS_ARCH-linux-gnu
 fi
 
 docker build --build-arg TARGETARCH=$TARGETARCH  -t stitches-base docker/stitches-base
 docker tag stitches-base ${IMAGE_REGISTRY}/stitches-base:${IMAGE_TAG}
 docker push ${IMAGE_REGISTRY}/stitches-base:${IMAGE_TAG}
 
-docker build --build-arg TARGETARCH=$TARGETARCH --build-arg IMAGE_REGISTRY=${IMAGE_REGISTRY} -t stitches-capabilities docker/stitches-capabilities
+docker build --build-arg TARGETARCH=$TARGETARCH --build-arg ARCHLIB=$ARCHLIB --build-arg IMAGE_REGISTRY=${IMAGE_REGISTRY} -t stitches-capabilities docker/stitches-capabilities
 docker tag stitches-capabilities ${IMAGE_REGISTRY}/stitches-capabilities:${IMAGE_TAG}
 docker push ${IMAGE_REGISTRY}/stitches-capabilities:${IMAGE_TAG}
 
-docker build --build-arg TARGETARCH=$TARGETARCH  --build-arg IMAGE_REGISTRY=${IMAGE_REGISTRY} -t stitches-py-dev docker/stitches-py-dev
+docker build --build-arg TARGETARCH=$TARGETARCH --build-arg ARCHLIB=$ARCHLIB  --build-arg IMAGE_REGISTRY=${IMAGE_REGISTRY} -t stitches-py-dev docker/stitches-py-dev
 docker tag stitches-py-dev ${IMAGE_REGISTRY}/stitches-py-dev:${IMAGE_TAG}
 docker push ${IMAGE_REGISTRY}/stitches-py-dev:${IMAGE_TAG}
 
 
-docker build --no-cache --build-arg TARGETARCH=$TARGETARCH --build-arg ARCHLIB=/usr/lib/x86_64-linux-gnu --build-arg IMAGE_REGISTRY=${IMAGE_REGISTRY}  -t stitches-wrapper -f docker/stitches-wrapper/Dockerfile .
+docker build --no-cache --build-arg TARGETARCH=$TARGETARCH --build-arg ARCHLIB=$ARCHLIB --build-arg IMAGE_REGISTRY=${IMAGE_REGISTRY}  -t stitches-wrapper -f docker/stitches-wrapper/Dockerfile .
 docker tag stitches-wrapper ${IMAGE_REGISTRY}/stitches-wrapper:${IMAGE_TAG}
 docker push ${IMAGE_REGISTRY}/stitches-wrapper:${IMAGE_TAG}
