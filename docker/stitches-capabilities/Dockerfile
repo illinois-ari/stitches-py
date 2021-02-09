@@ -1,6 +1,8 @@
 ARG IMAGE_REGISTRY=localhost:5000
 FROM ${IMAGE_REGISTRY}/stitches-base
 ARG TARGETARCH
+ARG ARCHLIB
+
 
 USER root
 
@@ -129,7 +131,7 @@ RUN cd /tmp && \
     cd lpsolve55 && \
     chmod +x ccc && \
     ./ccc && \
-    sudo cp bin/ux64/* /usr/lib/aarch64-linux-gnu/ # TODO FIX PLATFORM
+    sudo cp bin/ux64/* $ARCHLIB # TODO FIX PLATFORM
 
 
 ENV JDK_DIR=/usr/lib/jvm/java-8-openjdk-$TARGETARCH
@@ -144,6 +146,6 @@ RUN cd /tmp/lp_solve_5.5_java/lib && \
     sudo chmod +x build && \
     ./build && \
     cp /tmp/lp_solve_5.5_java/lib/ux64/liblpsolve55j.so /opt/STITCHES_6R7.2_DISTRO-A/STITCHES_Capabilities_6R7.2_DISTRO-A/STITCHESBinaries/dse/native/ && \
-    sudo cp /tmp/lp_solve_5.5_java/lib/ux64/liblpsolve55j.so /usr/lib/aarch64-linux-gnu/ # TODO FIX PLATFORM
+    sudo cp /tmp/lp_solve_5.5_java/lib/ux64/liblpsolve55j.so $ARCHLIB # TODO FIX PLATFORM
 
 #$c -fpic $INCL -c $SRC_DIR/lpsolve5j.cpp
