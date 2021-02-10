@@ -36,3 +36,20 @@ def build(ctx,  sos, build_dir):
     
     sos_cls = r_dict[sos]
     sos_cls.build(build_dir)
+
+
+@click.option('--build-dir', type=click.Path(exists=True), required=False, default='build')
+@click.argument('sos', type=str)
+@SoSCLIGroup.command('deploy')
+@click.pass_context
+def deploy(ctx,  sos, build_dir):
+    r_dict = utils.resources_in_path(ctx.obj['input_dir'], include_filter=SystemOfSystems)
+    
+    if sos not in r_dict.keys():
+        click.echo(f'SoS {sos} not found in input directory {ctx.obj["input_dir"]}')
+        exit(1)
+    
+    click.echo(f'Deplpying {sos}')
+    
+    sos_cls = r_dict[sos]
+    sos_cls.deploy(build_dir)

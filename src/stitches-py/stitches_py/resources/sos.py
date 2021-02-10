@@ -53,14 +53,44 @@ class SystemOfSystems:
     _CONNECTIONS: t.List[SoSConnection]
 
     @classmethod
-    def build(
+    def deploy(
             cls,
             build_dir: str,
     ):
-        return cls.deploy(build_dir)
+
+        build_path = os.path.abspath(build_dir)
+        sos_out_path = os.path.join(build_path, cls._RESOURCE_NAME)
+
+        if not os.path.exists(sos_out_path):
+            raise ValueError('SoS build path not found. Did you run build?')
+
+
+        cmd = [
+            'sudo',
+            '-E',
+            'docker-compose',
+            'up',
+            '-d'
+        ]
+            
+        proc = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=os.path.join(sos_out_path),
+        )
+
+
+        print(f'[{cmd!r} exited with {proc.returncode}]')
+
+        if proc.stdout:
+            print(f'[stdout]\n{proc.stdout.decode()}')
+        if proc.stderr:
+            print(f'[stderr]\n{proc.stderr.decode()}')
+
 
     @classmethod
-    def deploy(
+    def build(
             cls,
             build_dir: str,
             *,
@@ -221,28 +251,6 @@ class SystemOfSystems:
             **temp_vars
         )
 
-        cmd = [
-            'sudo',
-            '-E',
-            'docker-compose',
-            'up',
-            '-d'
-        ]
-            
-        proc = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=os.path.join(sos_build_dir),
-        )
-
-
-        print(f'[{cmd!r} exited with {proc.returncode}]')
-
-        if proc.stdout:
-            print(f'[stdout]\n{proc.stdout.decode()}')
-        if proc.stderr:
-            print(f'[stderr]\n{proc.stderr.decode()}')
 
 
     @classmethod

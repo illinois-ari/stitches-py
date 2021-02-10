@@ -1,13 +1,6 @@
 ---
 version: "3.3"
 services:
-  builder:
-    image: docker:dind
-    command: ["--experimental"]
-    network_mode: host
-    privileged: true
-    volumes:
-      - dockersock:/var/run
   dev:
     image: stitches-py-dev
     command: ["sleep", "900000"]
